@@ -2,7 +2,8 @@ class Warehouse
   attr_reader :orders
 
   STOCK_LEVEL_THRESHOLD = 3
-  REORDER_QUANTITY = 10
+
+  include Observable
 
   def initialize
     @items = []
@@ -11,6 +12,7 @@ class Warehouse
 
   def add(item)
     @items << item
+    notify_observers :added_item, item
   end
 
   def update(item, changes)
@@ -22,8 +24,9 @@ class Warehouse
 
     # Need to check that the item's quantity hasn't fallen below a given value
     if existing_item.quantity < STOCK_LEVEL_THRESHOLD
-      # We need to re-order the item
-      @orders << Item.new(existing_item.name, REORDER_QUANTITY)
+      notify_observers :low_stock, self, existing_item
     end
+
+    notify_observers :updated, existing_item
   end
 end
