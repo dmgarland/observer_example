@@ -6,7 +6,7 @@ Supplier = Struct.new(:name) do
   end
 
   def reorder(warehouse, existing_item)
-    warehouse.orders << Item.new(name: existing_item.name, quantity: REORDER_QUANTITY)
+    Order.create!(name: existing_item.name, quantity: REORDER_QUANTITY)
   end
 
 end

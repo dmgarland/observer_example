@@ -2,55 +2,60 @@ require "minitest/autorun"
 require "minitest/emoji"
 require "pry-byebug"
 require "sqlite3"
+require "active_record"
 
-require_relative "../lib/observable"
 require_relative "../lib/item"
 require_relative "../lib/supplier"
 require_relative "../lib/warehouse"
+require_relative "../lib/order"
+
+ActiveRecord::Base.establish_connection(
+  :adapter => :sqlite3,
+  :database => 'db/test.db'
+)
 
 class WarehouseSpec < MiniTest::Spec
+  def db(environment = "test")
+    SQLite3::Database.new("db/#{environment}.db")
+  end
 
   describe "A Warehouse" do
     before do
-      @warehouse = Warehouse.new
       @supplier = Supplier.new
 
-      # Allow the supplier to register an interest in the Warehouse
-      @warehouse.add_observer @supplier
-      @warehouse.add_observer lambda { |event, *args| File.open('log.txt', 'a') {|f| f.write "#{event} #{args.join " "}\n" }}
-
       @item = Item.new(name: "Baked Beans", quantity: 5)
-      @warehouse.add @item
+      @item.save
     end
 
     after do
-      Warehouse.db.execute "DELETE from items"
+      Item.delete_all
+      Order.delete_all
     end
 
     it "stores the item in a database" do
-      results = Warehouse.db.execute("select * from items")
+      results = db.execute("select * from items")
       results.first[0].wont_be_nil
       results.first[1].must_equal "Baked Beans"
       results.first[2].must_equal 5
 
-      results = Warehouse.db.execute("select count(*) from items")
+      results = db.execute("select count(*) from items")
       results.first[0].must_equal 1
     end
 
     describe "with an updated item" do
       before do
-       @warehouse.update @item, { name: "Heinz Baked Beans",  quantity: 2 }
+       @item.update(name: "Heinz Baked Beans",  quantity: 2)
       end
 
       it "updates the item in the database" do
-        results = Warehouse.db.execute("select * from items")
+        results = db.execute("select * from items")
         results.first[0].wont_be_nil
         results.first[1].must_equal "Heinz Baked Beans"
         results.first[2].must_equal 2
       end
 
       it "automatically notifies us that the stock fell below a certain level" do
-        @warehouse.orders.must_equal [Item.new(name: "Heinz Baked Beans", quantity: 10)]
+        Order.count.must_equal 1
       end
     end
 
@@ -60,7 +65,7 @@ class WarehouseSpec < MiniTest::Spec
       end
 
       it "removes the item" do
-        results = Warehouse.db.execute("select count(*) from items")
+        results = db.execute("select count(*) from items")
         results.first[0].must_equal 0
       end
     end
