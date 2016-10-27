@@ -8,10 +8,16 @@ class Warehouse
   def initialize
     @items = []
     @orders = []
+    Item.make_table
+  end
+
+  def self.db(environment = "test")
+    SQLite3::Database.new("db/#{environment}.db")
   end
 
   def add(item)
     @items << item
+    item.save
     notify_observers :added_item, item
   end
 
