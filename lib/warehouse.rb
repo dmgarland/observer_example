@@ -6,7 +6,6 @@ class Warehouse
   include Observable
 
   def initialize
-    @items = []
     @orders = []
     Item.make_table
   end
@@ -16,17 +15,16 @@ class Warehouse
   end
 
   def add(item)
-    @items << item
     item.save
     notify_observers :added_item, item
   end
 
   def update(item, changes)
-    existing_item = @items.find { |i| i == item }
+    # Find the item in the DB
+    existing_item = Item.find(item.id)
 
-    changes.each do |method, value|
-      existing_item.send "#{method}=".to_sym, value
-    end
+    # Updating it in the DB
+    existing_item.update(changes)
 
     # Need to check that the item's quantity hasn't fallen below a given value
     if existing_item.quantity < STOCK_LEVEL_THRESHOLD

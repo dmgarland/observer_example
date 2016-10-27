@@ -1,6 +1,6 @@
 require "minitest/autorun"
 require "minitest/emoji"
-
+require "pry-byebug"
 require "sqlite3"
 
 require_relative "../lib/observable"
@@ -18,7 +18,8 @@ class WarehouseSpec < MiniTest::Spec
       # Allow the supplier to register an interest in the Warehouse
       @warehouse.add_observer @supplier
       @warehouse.add_observer lambda { |event, *args| File.open('log.txt', 'a') {|f| f.write "#{event} #{args.join " "}\n" }}
-      @item = Item.new("Baked Beans", 5)
+
+      @item = Item.new(name: "Baked Beans", quantity: 5)
       @warehouse.add @item
     end
 
@@ -38,13 +39,41 @@ class WarehouseSpec < MiniTest::Spec
 
     describe "with an updated item" do
       before do
-       @warehouse.update @item, { quantity: 2 }
+       @warehouse.update @item, { name: "Heinz Baked Beans",  quantity: 2 }
+      end
+
+      it "updates the item in the database" do
+        results = Warehouse.db.execute("select * from items")
+        results.first[0].wont_be_nil
+        results.first[1].must_equal "Heinz Baked Beans"
+        results.first[2].must_equal 2
       end
 
       it "automatically notifies us that the stock fell below a certain level" do
-        @warehouse.orders.must_equal [Item.new("Baked Beans", 10)]
+        @warehouse.orders.must_equal [Item.new(name: "Heinz Baked Beans", quantity: 10)]
       end
     end
-  end
 
+    describe "deleting an item" do
+      before do
+        @item.delete
+      end
+
+      it "removes the item" do
+        results = Warehouse.db.execute("select count(*) from items")
+        results.first[0].must_equal 0
+      end
+    end
+
+    describe "retreiving all items" do
+      before do
+        @items = Item.all
+      end
+
+      it "builds an array of items" do
+        @items.must_equal [Item.new(id: @item.id, name: "Baked Beans", quantity: 5)]
+      end
+    end
+
+  end
 end
